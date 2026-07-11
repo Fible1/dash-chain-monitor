@@ -1,36 +1,40 @@
-# NodeSoda · Dash Exchange Flow Monitor
+# NodeSoda · DASH Exchange Flow Monitor
 
-Vercel-hosted monitor for Dash exchange wallet flows, mirroring the Quai
-dashboard: serverless functions + Upstash Redis + ntfy push + Chart.js + native
-Vercel cron.
+Port of the Quai exchange monitor to Dash. Vercel serverless + Upstash Redis +
+ntfy push + admin panel + public tag suggestions.
 
-## What it monitors
+## Watched wallets
+Edit `WATCHED` in `api/check.js`:
+    "XnT33zjrFKjt3ymfyQZs2FPiKNer3WVj14": "Binance hot",
 
-- Per-wallet balance (currently Binance only)
-- Inflow/outflow diff between polls
-- Transaction feed built from getaddressdeltas
-- Whale alerts via ntfy on any single flow >= WHALE_THRESHOLD_DASH (default 1000)
+## Endpoints
+- `/api/check`   — 5-min cron sampler (balances, alerts, whale feed, correlation)
+- `/api/status`  — public dashboard state
+- `/api/history` — balance samples + Kraken DASHUSD OHLC for the price chart
+- `/api/config`  — GET public thresholds; POST (secret) to update
+- `/api/suggest-tag` — public tag suggestions -> pending queue
+- `/admin.html`  — thresholds, private watchlist, tag approvals (needs CRON_SECRET)
 
-## Requirements on the RPC node
+## Env vars (Vercel -> Settings -> Environment Variables)
+DASH_RPC_URL, DASH_RPC_USER, DASH_RPC_PASS,
+UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN,
+NTFY_TOPIC, CRON_SECRET
+Optional: ALERT_EMAIL, HEALTHCHECK_URL
 
-This build depends on the node running with `-addressindex=1` and the
-`external_rpc` whitelist including `getaddressbalance` and `getaddressdeltas`
-(both confirmed working). Also uses `getblockcount`.
+## Dash vs Quai — what changed and why
+- **Whale feed**: Quai scanned every block's transactions. Dash's RPC whitelist
+  blocks block-scanning methods, so this uses `getaddressdeltas` over the
+  (cursor..head] height window instead — cheaper and more precise. Trade-off:
+  deltas expose the *direction* of each flow but NOT the counterparty address,
+  so feed rows show "deposit/withdrawal + exchange", not "from → to".
+- **Address validation**: Ethereum `0x`+40hex -> Dash Base58Check (`X…`/`7…`).
+  Base58 is case-sensitive, so addresses are never lowercased.
+- **Units**: wei/BigInt -> duffs (1 DASH = 1e8).
+- **Price**: Kraken DASHUSD.
 
-## Adding more wallets
-
-Edit `WATCHED` in `api/check.js` — add OKX / KuCoin / MEXC addresses as
-`"address": "Label"` pairs. The dashboard renders a card per wallet automatically.
-
-## Files
-
-- `api/_rpc.js` — Dash Core JSON-RPC helper (Basic Auth, env vars only)
-- `api/check.js` — cron poller; balances, deltas, whale alerts
-- `api/status.js` — public read-only status
-- `index.html` — dashboard
-- `vercel.json` — native cron (`*/5 * * * *`, requires Vercel Pro)
+## Requires on the RPC node
+`-addressindex=1` and whitelist: `getblockcount`, `getaddressbalance`,
+`getaddressdeltas`. (`getmempoolinfo` is blocked and unused.)
 
 ## Security
-
-Credentials live ONLY in Vercel env vars, used server-side. Nothing sensitive
-ships to the browser. Never commit `.env`.
+Credentials live only in Vercel env vars, used server-side. Never commit `.env`.

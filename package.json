@@ -1,9 +1,7 @@
 {
-  "name": "dash-monitor-vercel",
+  "name": "dash-exchange-monitor",
   "version": "1.0.0",
   "private": true,
-  "description": "NodeSoda Dash chain monitor — Vercel serverless + Upstash Redis + ntfy",
-  "engines": {
-    "node": ">=18"
-  }
+  "description": "NodeSoda Dash exchange flow monitor",
+  "engines": { "node": ">=18" }
 }
