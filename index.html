@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DASH Exchange Flow Monitor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --ink: #0b0e11;
+    --panel: #14181d;
+    --line: #262c33;
+    --text: #e8eaed;
+    --muted: #8b949e;
+    --crimson: #e4342b;   /* inflow to exchange = potential sell pressure */
+    --jade: #3fb68b;      /* outflow from exchange = accumulation */
+    --dashblue: #008de4;  /* DASH brand */
+    --mono: "IBM Plex Mono", monospace;
+    --sans: "Space Grotesk", sans-serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--ink);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    padding: 2rem 1.25rem 4rem;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; }
+
+  header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: .5rem 1rem;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 1.25rem;
+    margin-bottom: 2rem;
+  }
+  h1 { font-size: 1.7rem; font-weight: 700; letter-spacing: .01em; }
+  h1 span { color: var(--dashblue); }
+  .status-line {
+    font-family: var(--mono);
+    font-size: .75rem;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--jade); display: inline-block; }
+
+  .header-stats {
+    width: 100%;
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-top: 1rem;
+  }
+  .hstat {
+    flex: 1;
+    min-width: 160px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: .9rem 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: .35rem;
+  }
+  .hstat-label {
+    font-family: var(--mono);
+    font-size: .7rem;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    color: var(--muted);
+  }
+  .hstat-value {
+    font-family: var(--mono);
+    font-size: 1.5rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+    line-height: 1.1;
+  }
+  .hstat-value small { font-size: .6rem; color: var(--muted); font-weight: 400; }
+  .hstat-value.in { color: var(--crimson); }
+  .hstat-value.out { color: var(--jade); }
+
+  .section-title {
+    font-family: var(--mono);
+    font-size: .72rem;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: var(--muted);
+    margin: 2rem 0 .9rem;
+  }
+
+  .wallet-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }
+  .wallet {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 1.1rem 1.25rem;
+  }
+  .wallet .name { font-weight: 700; font-size: 1.05rem; letter-spacing: .01em; }
+  .wallet .balance {
+    font-family: var(--mono);
+    font-size: 1.9rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    margin: .5rem 0 .1rem;
+  }
+  .wallet .balance small { font-size: .7rem; color: var(--muted); font-weight: 400; }
+  .wallet .meta { font-family: var(--mono); font-size: .72rem; color: var(--muted); margin-top: .5rem; }
+  .wallet .delta { font-family: var(--mono); font-size: .78rem; margin-top: .35rem; font-variant-numeric: tabular-nums; }
+  .wallet .delta.in { color: var(--crimson); }
+  .wallet .delta.out { color: var(--jade); }
+
+  .chart-wrap {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 1rem 1.1rem;
+    margin-top: 1rem;
+  }
+
+  .whale-list {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .whale-row {
+    display: flex;
+    align-items: center;
+    gap: .9rem;
+    padding: .7rem 1.1rem;
+    border-bottom: 1px solid var(--line);
+    font-size: .82rem;
+  }
+  .whale-row:last-child { border-bottom: none; }
+  .whale-row time { font-family: var(--mono); font-size: .7rem; color: var(--muted); white-space: nowrap; }
+  .whale-amt { font-family: var(--mono); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .whale-route { color: var(--muted); font-family: var(--mono); font-size: .72rem; }
+  .whale-row.deposit { border-left: 3px solid var(--crimson); }
+  .whale-row.withdrawal { border-left: 3px solid var(--jade); }
+  .whale-row.deposit .whale-amt { color: var(--crimson); }
+  .whale-row.withdrawal .whale-amt { color: var(--jade); }
+  .whale-row a { color: var(--dashblue); text-decoration: none; margin-left: auto; font-family: var(--mono); font-size: .7rem; }
+  .whale-row a:hover { text-decoration: underline; }
+  .whale-list .empty { padding: 1.1rem; color: var(--muted); font-size: .82rem; }
+  .whale-row.whale-extra { display: none; }
+  .whale-list.expanded .whale-row.whale-extra { display: flex; }
+  .whale-toggle {
+    display: block; width: 100%;
+    background: transparent; border: none; border-top: 1px solid var(--line);
+    color: var(--muted); font-family: var(--mono); font-size: .74rem;
+    padding: .7rem; cursor: pointer; letter-spacing: .04em;
+  }
+  .whale-toggle:hover { color: var(--text); background: rgba(255,255,255,.02); }
+
+  .legend { font-family: var(--mono); font-size: .68rem; color: var(--muted); margin-top: .8rem; display: flex; gap: 1.2rem; flex-wrap: wrap; }
+  .legend .sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: .4rem; vertical-align: middle; }
+
+  footer { font-family: var(--mono); font-size: .68rem; color: var(--muted); margin-top: 2.5rem; text-align: center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1><span>DASH</span> Exchange Flow Monitor</h1>
+      <div class="status-line" id="status"><span class="dot"></span>Loading…</div>
+    </div>
+    <div class="header-stats">
+      <div class="hstat">
+        <span class="hstat-label">Chain height</span>
+        <span class="hstat-value" id="height-stat">—</span>
+      </div>
+      <div class="hstat">
+        <span class="hstat-label">Total watched balance</span>
+        <span class="hstat-value" id="total-stat">—</span>
+      </div>
+      <div class="hstat">
+        <span class="hstat-label">Net flow since last poll</span>
+        <span class="hstat-value" id="flow-stat">—</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="section-title">Exchange wallets</div>
+  <div class="wallet-grid" id="wallets"></div>
+
+  <div class="section-title">Total watched balance</div>
+  <div class="chart-wrap"><canvas id="totalChart" height="110"></canvas></div>
+
+  <div class="section-title">Transaction feed</div>
+  <div class="whale-list" id="feed"></div>
+  <div class="legend">
+    <span><span class="sw" style="background:var(--crimson)"></span>Inflow to exchange — potential sell pressure</span>
+    <span><span class="sw" style="background:var(--jade)"></span>Outflow from exchange — accumulation</span>
+  </div>
+
+  <footer id="footer"></footer>
+</div>
+
+<script>
+const fmt = (n, d = 4) => (n == null ? "—" : Number(n).toLocaleString(undefined, { maximumFractionDigits: d }));
+const ago = (t) => {
+  const s = Math.round((Date.now() - t) / 1000);
+  if (s < 60) return s + "s ago";
+  if (s < 3600) return Math.round(s / 60) + "m ago";
+  if (s < 86400) return Math.round(s / 3600) + "h ago";
+  return Math.round(s / 86400) + "d ago";
+};
+const short = (a) => (a ? a.slice(0, 8) + "…" + a.slice(-4) : "?");
+
+let totalChart;
+window.__feedExpanded = window.__feedExpanded || false;
+
+async function load() {
+  let d;
+  try { d = await (await fetch("/api/status")).json(); }
+  catch (e) { document.getElementById("status").innerHTML = '<span class="dot" style="background:var(--crimson)"></span>Failed to load'; return; }
+
+  const L = d.latest || {};
+  document.getElementById("status").innerHTML =
+    `<span class="dot"></span>` + (L.t ? `Last poll ${ago(L.t)}` : "No samples yet");
+
+  document.getElementById("height-stat").textContent = fmt(L.height, 0);
+
+  const wallets = L.wallets || {};
+  const total = Object.values(wallets).reduce((s, w) => s + w.balance, 0);
+  const netFlow = Object.values(wallets).reduce((s, w) => s + (w.delta || 0), 0);
+  document.getElementById("total-stat").innerHTML = `${fmt(total)} <small>DASH</small>`;
+  const flowEl = document.getElementById("flow-stat");
+  flowEl.innerHTML = `${netFlow > 0 ? "+" : ""}${fmt(netFlow)} <small>DASH</small>`;
+  flowEl.className = "hstat-value " + (netFlow > 0 ? "in" : netFlow < 0 ? "out" : "");
+
+  document.getElementById("wallets").innerHTML = Object.entries(wallets).map(([addr, w]) => {
+    const cls = w.delta > 0 ? "in" : w.delta < 0 ? "out" : "";
+    const deltaTxt = w.delta ? `${w.delta > 0 ? "+" : ""}${fmt(w.delta)} DASH since last poll` : "no change since last poll";
+    return `<div class="wallet">
+      <div class="name">${w.label}</div>
+      <div class="balance">${fmt(w.balance)} <small>DASH</small></div>
+      <div class="meta">Lifetime received: ${fmt(w.received, 0)} DASH</div>
+      <div class="delta ${cls}">${deltaTxt}</div>
+    </div>`;
+  }).join("") || `<div class="wallet"><div class="name">No wallets configured</div></div>`;
+
+  const hist = d.history || [];
+  const labels = hist.map((p) => new Date(p.t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
+  drawLine(labels, hist.map((p) => p.total));
+
+  const feed = d.feed || [];
+  const wl = document.getElementById("feed");
+  if (feed.length) {
+    const rows = feed.map((f, i) => {
+      const cls = f.dir === "in" ? "deposit" : "withdrawal";
+      const badge = f.dir === "in" ? "▲ deposit" : "▼ withdrawal";
+      const hide = i >= 10 ? " whale-extra" : "";
+      return `<div class="whale-row ${cls}${hide}">
+        <time>${new Date(f.t).toLocaleString()}</time>
+        <span class="whale-amt">${fmt(f.amount)} DASH</span>
+        <span class="whale-route">${badge} · ${f.label} · ${short(f.txid)}</span>
+        <a href="https://insight.dash.org/insight/tx/${f.txid}" target="_blank" rel="noopener">tx ↗</a>
+      </div>`;
+    }).join("");
+    const extra = feed.length - 10;
+    const toggle = extra > 0
+      ? `<button class="whale-toggle" id="feed-toggle">${window.__feedExpanded ? "Show less ↑" : "Show all " + feed.length + " ↓"}</button>`
+      : "";
+    wl.innerHTML = rows + toggle;
+    if (window.__feedExpanded) wl.classList.add("expanded");
+    if (extra > 0) {
+      document.getElementById("feed-toggle").onclick = () => {
+        window.__feedExpanded = !window.__feedExpanded;
+        wl.classList.toggle("expanded");
+        document.getElementById("feed-toggle").textContent =
+          window.__feedExpanded ? "Show less ↑" : "Show all " + feed.length + " ↓";
+      };
+    }
+  } else {
+    wl.innerHTML = `<div class="empty">No transactions above the threshold seen yet — the feed populates as exchange-sized moves happen on-chain.</div>`;
+  }
+
+  document.getElementById("footer").textContent =
+    `${d.appVersion} · Flows via Dash Core getaddressbalance / getaddressdeltas · NodeSoda`;
+}
+
+function drawLine(labels, data) {
+  if (totalChart) totalChart.destroy();
+  const ctx = document.getElementById("totalChart").getContext("2d");
+  totalChart = new Chart(ctx, {
+    type: "line",
+    data: { labels, datasets: [{ label: "Total watched balance (DASH)", data, borderColor: "#008de4", borderWidth: 2, pointRadius: 0, tension: 0.25, fill: true, backgroundColor: "rgba(0,141,228,0.08)" }] },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: "#8b949e", maxTicksLimit: 8, font: { family: "IBM Plex Mono" } }, grid: { color: "#1c2127" } },
+        y: { ticks: { color: "#8b949e", font: { family: "IBM Plex Mono" } }, grid: { color: "#1c2127" } },
+      },
+    },
+  });
+}
+
+load();
+setInterval(load, 30000);
+</script>
+</body>
+</html>
