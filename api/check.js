@@ -292,9 +292,34 @@ function periodReference(history, addr, nowMs, periodMs, minMs) {
 }
 
 // --- Whale transaction scanning ------------------------------------------
-// Dash approach: pull getaddressdeltas for each address of interest over the
-// (cursor..head] height window. Each delta is a per-tx balance change in
-// duffs — positive = received, negative = sent.
+// getaddressdeltas returns one row per UTXO EVENT, not per transaction. A
+// single spend from a hot wallet produces several rows for the SAME address
+// and the SAME txid:
+//
+//     -50,000   (the input being spent)
+//     +48,500   (the change output returning to the same address)
+//
+// Read row-by-row that looks like a 50,000 outflow AND a 48,500 inflow, when
+// the real economic effect is a 1,500 outflow. Change is not a real flow.
+//
+// So we NET the deltas per (address, txid) before applying any threshold. The
+// change output cancels against its own input automatically — no address
+// comparison needed, because change returns to the originating address by
+// definition. Only the net movement of value in or out of the wallet survives.
+function netDeltasByTx(deltas) {
+  const byTx = new Map();
+  for (const d of deltas || []) {
+    const key = d.txid;
+    const cur = byTx.get(key) || { txid: d.txid, height: d.height, satoshis: 0, rows: 0 };
+    cur.satoshis += Number(d.satoshis);
+    cur.rows += 1;
+    // Keep the lowest height seen (rows for one tx share a height anyway).
+    if (Number.isInteger(d.height) && d.height < cur.height) cur.height = d.height;
+    byTx.set(key, cur);
+  }
+  return [...byTx.values()];
+}
+
 async function scanWhaleTxs(prevCursor, head, thresholdDash, watchMap = {}) {
   let from = prevCursor + 1;
   let skipped = 0;
@@ -305,24 +330,31 @@ async function scanWhaleTxs(prevCursor, head, thresholdDash, watchMap = {}) {
   const found = [];
   const incoming = [];
 
-  // Exchange wallets: large flows go into the public whale feed.
+  // Exchange wallets: large NET flows go into the public whale feed.
   for (const [addr, label] of Object.entries(WATCHED)) {
     const deltas = await rpcRaw("getaddressdeltas", [
       { addresses: [addr], start: from, end: head },
     ]);
-    for (const d of deltas || []) {
-      const dash = duffsToDash(d.satoshis);
+    // Net per txid first — otherwise a spend's change output would be counted
+    // as a separate large inflow alongside its own input as a large outflow.
+    for (const tx of netDeltasByTx(deltas)) {
+      const dash = duffsToDash(tx.satoshis);
+      // A pure self-send (everything returned as change) nets to ~0 and is
+      // dropped here, which is exactly what we want — no value actually moved.
       if (Math.abs(dash) >= thresholdDash) {
         found.push({
           t: new Date().toISOString(), // deltas carry height, not timestamp
-          block: d.height,
-          hash: d.txid,
-          // Direction is what matters: + = into the exchange, - = out of it.
+          block: tx.height,
+          hash: tx.txid,
+          // Direction of the NET movement: + = into the wallet, - = out of it.
           from: dash < 0 ? addr : null,
           to: dash > 0 ? addr : null,
           dir: dash > 0 ? "in" : "out",
           dash: Math.abs(dash),
           exchange: label,
+          // How many UTXO rows collapsed into this one net figure. >2 means
+          // the tx had change; useful for spotting mis-reads later.
+          rows: tx.rows,
         });
       }
     }
@@ -334,16 +366,19 @@ async function scanWhaleTxs(prevCursor, head, thresholdDash, watchMap = {}) {
       const deltas = await rpcRaw("getaddressdeltas", [
         { addresses: [addr], start: from, end: head },
       ]);
-      for (const d of deltas || []) {
-        const dash = duffsToDash(d.satoshis);
+      // Net per txid so a spend's change output is not reported as an
+      // "incoming" payment to the very wallet that just sent the funds.
+      for (const tx of netDeltasByTx(deltas)) {
+        const dash = duffsToDash(tx.satoshis);
         if (dash > 0) {
           incoming.push({
             t: new Date().toISOString(),
-            block: d.height,
-            hash: d.txid,
+            block: tx.height,
+            hash: tx.txid,
             to: addr,
             dash,
             label,
+            rows: tx.rows,
           });
         }
       }

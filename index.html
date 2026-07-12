@@ -407,6 +407,19 @@
   footer .chain.live::before { background: var(--jade); }
   footer .chain.stale::before { background: var(--crimson); }
   footer .chain.stale { color: var(--crimson); }
+  .net-tag {
+    font-size: .58rem;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 0 .25rem;
+    margin-left: .3rem;
+    vertical-align: middle;
+    font-weight: 400;
+    cursor: help;
+  }
   footer b.in { color: var(--crimson); font-weight: 500; }
   footer b.out { color: var(--jade); font-weight: 500; }
 </style>
@@ -499,7 +512,7 @@
     <b class="in">▲ inflow</b> to exchange ·
     <b class="out">▼ outflow</b> from exchange
     <span class="chain" id="chain-height">block —</span>
-    <span class="ver">v7-three-wallets</span>
+    <span class="ver">v8-net-change</span>
   </footer>
 </div>
 
@@ -699,7 +712,7 @@ async function refresh() {
       const thr = s.whaleScan.threshold
         ? "~" + Math.round(s.whaleScan.threshold).toLocaleString("en-US") + " DASH"
         : "";
-      wsub.textContent = `transfers ≥ ${s.whaleScan.percent}% of combined watched balance (${thr}) · via getaddressdeltas`;
+      wsub.textContent = `transfers ≥ ${s.whaleScan.percent}% of combined watched balance (${thr}) · net of change, via getaddressdeltas`;
       if (s.whaleScan.error) {
         wsub.textContent += " · ⚠ last scan failed, retrying";
       }
@@ -721,10 +734,13 @@ async function refresh() {
           ? `→ <b>${esc(tx.exchange || "")}</b>`
           : `<b>${esc(tx.exchange || "")}</b> →`;
         const hide = i >= 10 ? " whale-extra" : "";
+        // rows > 1 means the tx had change returning to the same wallet; the
+        // amount shown is the NET movement, not the gross UTXO figure.
+        const netTag = tx.rows > 1 ? ' <span class="net-tag" title="net of change returned to the same address">net</span>' : "";
         return `
         <div class="whale-row ${cls}${hide}">
           <time>${new Date(tx.t).toLocaleString()}</time>
-          <span class="whale-amt">${fmt(tx.dash)} DASH</span>
+          <span class="whale-amt">${fmt(tx.dash)} DASH${netTag}</span>
           <span class="whale-route">${badge} · ${arrow} · block ${tx.block}</span>
           <a href="https://insight.dash.org/insight/tx/${tx.hash}" target="_blank" rel="noopener">tx ↗</a>
         </div>`;
