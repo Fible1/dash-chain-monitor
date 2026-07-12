@@ -488,7 +488,7 @@
       <div class="donate-text">
         <div class="donate-title">Support this monitor</div>
         <div class="donate-sub">Tips in DASH keep the node and this dashboard running</div>
-        <code id="donate-addr">0x0044901c9180267bcAB587f981Cc4A70b184f5Da</code>
+        <code id="donate-addr">XsE3QtXjvukTHDxQuoYLr2KrQzkHGyyBcr</code>
       </div>
       <button id="donate-copy" class="donate-btn">Copy address</button>
     </div>
@@ -499,15 +499,16 @@
     <b class="in">▲ inflow</b> to exchange ·
     <b class="out">▼ outflow</b> from exchange
     <span class="chain" id="chain-height">block —</span>
-    <span class="ver">v3-dash-syncgate</span>
+    <span class="ver">v4-dash-tipaddr</span>
   </footer>
 </div>
 
 <script>
 const fmt = n => n.toLocaleString("en-US", { maximumFractionDigits: 0 });
 const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-let publicTags = {};   // approved community tags {addrLower: label}
+let publicTags = {};   // approved community tags {addr: label}
 let corrAlerts = [];   // correlation alerts for chart markers
+let exchangeMeta = {}; // {addr: {name,...}} from live state — drives the charts
 const fmtPct = n => {
   const a = Math.abs(n);
   // enough decimals to show ~2 significant digits, capped at 4
@@ -599,6 +600,7 @@ async function refresh() {
     }
 
     publicTags = s.publicTags || {};
+    exchangeMeta = s.exchanges || {};
     corrAlerts = (s.alerts || []).filter(a => a.type === "correlation");
     if (chartData) renderChart();
 
@@ -812,8 +814,12 @@ function renderChart() {
   for (let t = firstBucket; t <= nowMs; t += bucketMs) buckets.push(t);
   const bucketIndex = (t) => Math.floor((t - firstBucket) / bucketMs);
 
-  const addrNames = { "0x006243e4eE6C2CF6F993036f27f0A88f265Ddb4a": "MEXC hot",
-                      "0x007e2F1a4709B812F339f22E18032118FBcc8987": "Gate.io hot" };
+  // Wallet list is derived from live state, never hardcoded — so adding a
+  // wallet to WATCHED in check.js needs no edit here.
+  const addrNames = {};
+  for (const [a, ex] of Object.entries(exchangeMeta || {})) {
+    addrNames[a] = (ex && ex.name) || a;
+  }
 
   // Per-interval net flow: delta between consecutive samples, spread evenly
   // across the buckets the gap covers (handles thinned older samples honestly).
@@ -999,10 +1005,7 @@ function renderTrend() {
   const note = document.getElementById("trend-note");
   const nowMs = Date.now();
   const cutoff = nowMs - trendDays * 24 * 3600 * 1000;
-  const addrs = Object.keys({
-    "0x006243e4eE6C2CF6F993036f27f0A88f265Ddb4a": 1,
-    "0x007e2F1a4709B812F339f22E18032118FBcc8987": 1,
-  });
+  const addrs = Object.keys(exchangeMeta || {});
 
   const samples = (chartData.history || [])
     .map(s => ({ t: new Date(s.t).getTime(), b: s.b }))
