@@ -4,8 +4,16 @@ Port of the Quai exchange monitor to Dash. Vercel serverless + Upstash Redis +
 ntfy push + admin panel + public tag suggestions.
 
 ## Watched wallets
-Edit `WATCHED` in `api/check.js`:
-    "XnT33zjrFKjt3ymfyQZs2FPiKNer3WVj14": "Binance hot",
+Edit `WATCHED` in `api/check.js`. Labels are deliberately neutral — these
+addresses behave like exchange hot/consolidation wallets, but none is confirmed
+as belonging to any named exchange:
+
+    XsqwdGfza8Rf3GrSom988Rxhaprecw3XD6  Suspected-Exchange-Hot-Wallet-1  (85,541 DASH)
+    XmZQkfLtk3xLtbBMenTdaZMxsUBYAsRz1o  Suspected-Exchange-Hot-Wallet-2  (near-balanced, active daily)
+    XypDdrwkYRdur4FidN52dX4nLcsMfSJRaT  Suspected-Exchange-Hot-Wallet-3  (balanced in/out)
+
+Dashboard cards are sorted by current balance (largest first), so the ordering
+stays true as balances move.
 
 ## Endpoints
 - `/api/check`   — 5-min cron sampler (balances, alerts, whale feed, correlation)

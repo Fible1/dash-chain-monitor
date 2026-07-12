@@ -6,8 +6,19 @@
 // Alerts are edge-triggered: one push when the 24h change crosses the
 // threshold, re-armed when it falls back below 80% of the threshold.
 
+// Watched addresses. Labels are deliberately neutral — these are addresses
+// whose on-chain behaviour is consistent with exchange hot wallets, but none
+// is confirmed as belonging to any named exchange.
+// Numbers follow balance rank at the time of adding; the dashboard sorts cards
+// by LIVE balance, so if the ranking shifts the cards reorder and the labels
+// stay put as stable identifiers.
 const WATCHED = {
-  "XnT33zjrFKjt3ymfyQZs2FPiKNer3WVj14": "Binance hot",
+  // 85,541 DASH · 53,904 tx
+  "XsqwdGfza8Rf3GrSom988Rxhaprecw3XD6": "Suspected-Exchange-Hot-Wallet-1",
+  // 63,587 DASH · 1,244,379 tx · near-balanced in/out, active daily
+  "XmZQkfLtk3xLtbBMenTdaZMxsUBYAsRz1o": "Suspected-Exchange-Hot-Wallet-2",
+  // 57,517 DASH · 101,471 tx · balanced in/out
+  "XypDdrwkYRdur4FidN52dX4nLcsMfSJRaT": "Suspected-Exchange-Hot-Wallet-3",
 };
 
 const DEFAULT_THRESHOLD_PCT = 1; // alert if 24h net change exceeds 1%

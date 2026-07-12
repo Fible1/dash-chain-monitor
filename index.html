@@ -499,7 +499,7 @@
     <b class="in">▲ inflow</b> to exchange ·
     <b class="out">▼ outflow</b> from exchange
     <span class="chain" id="chain-height">block —</span>
-    <span class="ver">v4-dash-tipaddr</span>
+    <span class="ver">v7-three-wallets</span>
   </footer>
 </div>
 
@@ -626,7 +626,11 @@ async function refresh() {
     // cards
     const cards = document.getElementById("cards");
     cards.innerHTML = "";
-    const entries = Object.entries(s.exchanges || {});
+    // Cards are ordered by current balance (largest first), not by the order
+    // the addresses happen to sit in WATCHED — so the ranking stays true as
+    // balances move rather than freezing whatever was true when they were added.
+    const entries = Object.entries(s.exchanges || {})
+      .sort((a, b) => (b[1].balance || 0) - (a[1].balance || 0));
     if (!entries.length) {
       cards.innerHTML = '<div class="empty">No data yet — the checker has not run.</div>';
     }
