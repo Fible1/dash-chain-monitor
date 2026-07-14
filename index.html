@@ -322,61 +322,6 @@
   .amt.down { color: var(--jade); }
   .empty { color: var(--muted); font-family: var(--mono); font-size: .8rem; padding: 1rem 0; }
 
-  .donate {
-    margin-top: 2.5rem;
-    border-top: 1px solid var(--line);
-    padding-top: 1.5rem;
-  }
-  .donate-inner {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    flex-wrap: wrap;
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 1.1rem 1.3rem;
-  }
-  .dash-mark {
-    width: 34px;
-    height: 34px;
-    flex-shrink: 0;
-    color: var(--jade);
-  }
-  .donate-text { flex: 1; min-width: 200px; }
-  .donate-title { font-weight: 700; font-size: .95rem; }
-  .donate-sub {
-    font-family: var(--mono);
-    font-size: .72rem;
-    color: var(--muted);
-    margin: .15rem 0 .5rem;
-  }
-  #donate-addr {
-    font-family: var(--mono);
-    font-size: .74rem;
-    color: var(--text);
-    word-break: break-all;
-    background: var(--ink);
-    border: 1px solid var(--line);
-    border-radius: 5px;
-    padding: .3rem .45rem;
-    display: inline-block;
-  }
-  .donate-btn {
-    background: var(--jade);
-    border: none;
-    border-radius: 6px;
-    color: #06231a;
-    font-family: var(--sans);
-    font-weight: 600;
-    font-size: .8rem;
-    padding: .6rem 1.1rem;
-    cursor: pointer;
-    flex-shrink: 0;
-  }
-  .donate-btn:hover { filter: brightness(1.08); }
-  .donate-btn.copied { background: var(--muted); color: var(--ink); }
-
   footer {
     margin-top: 2rem;
     font-family: var(--mono);
@@ -492,27 +437,12 @@
     <div id="alert-list"><div class="empty">No alerts yet.</div></div>
   </section>
 
-  <section class="donate">
-    <div class="donate-inner">
-      <svg class="dash-mark" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <circle cx="50" cy="50" r="42" fill="none" stroke="currentColor" stroke-width="7"/>
-        <line x1="62" y1="62" x2="86" y2="86" stroke="currentColor" stroke-width="7" stroke-linecap="round"/>
-      </svg>
-      <div class="donate-text">
-        <div class="donate-title">Support this monitor</div>
-        <div class="donate-sub">Tips in DASH keep the node and this dashboard running</div>
-        <code id="donate-addr">XsE3QtXjvukTHDxQuoYLr2KrQzkHGyyBcr</code>
-      </div>
-      <button id="donate-copy" class="donate-btn">Copy address</button>
-    </div>
-  </section>
-
   <footer>
     Balances sampled every 5 min via Dash Core RPC ·
     <b class="in">▲ inflow</b> to exchange ·
     <b class="out">▼ outflow</b> from exchange
     <span class="chain" id="chain-height">block —</span>
-    <span class="ver">v8-net-change</span>
+    <span class="ver">v9-no-tip</span>
   </footer>
 </div>
 
@@ -1137,31 +1067,6 @@ document.querySelectorAll(".trend-range").forEach(btn => {
 
 loadChart();
 setInterval(loadChart, 5 * 60 * 1000);
-
-// --- donation copy button ------------------------------------------------
-document.getElementById("donate-copy").addEventListener("click", async () => {
-  const btn = document.getElementById("donate-copy");
-  const addr = document.getElementById("donate-addr").textContent.trim();
-  try {
-    await navigator.clipboard.writeText(addr);
-  } catch (_) {
-    // Fallback for browsers/contexts without clipboard API
-    const r = document.createRange();
-    r.selectNode(document.getElementById("donate-addr"));
-    const sel = window.getSelection();
-    sel.removeAllRanges();
-    sel.addRange(r);
-    try { document.execCommand("copy"); } catch (e) {}
-    sel.removeAllRanges();
-  }
-  const original = btn.textContent;
-  btn.textContent = "Copied ✓";
-  btn.classList.add("copied");
-  setTimeout(() => {
-    btn.textContent = original;
-    btn.classList.remove("copied");
-  }, 1800);
-});
 
 </script>
 </body>
